@@ -1,6 +1,3 @@
-# Registration
-## Join 
-
 - [Registration](#registration)
   - [Join](#join)
   - [Edit Join](#edit-join)
@@ -18,8 +15,11 @@
   - [Show Equipment](#show-equipment)
   - [Show Item](#show-item)
 
+# Registration
+## Join 
+
 ```
-[+] /join
+[+] /union-join
 ```
 
 Allows the user to add themself for the waitlist of a union.  
@@ -38,7 +38,7 @@ Procedure
 
 ## Edit Join
 ```
-[+] /joinedit
+[+] /union-join edit
 ```
 Allows the user to select an entry and edit any information that can be editted.
 
@@ -54,7 +54,7 @@ Procedure
 
 ## Join Cancel
 ```
-[+] /joincancel
+[+] /union-join cancel
 ```
 Allows the user to remove themself from the waitlist of a union.  
 If there are no entries, tell them.  
@@ -63,7 +63,7 @@ If there are multiple entries, the user will need to select the receipt correspo
 ## Accept User
 **[ADMIN]**  
 ```
-[+] /accept @user
+[+] /union-join accept @user
 ```
 Allows an admin to accept a user, remove their entries and move them to the correct spreadsheet for the Union. The user is then notified of this through a DM or a server message.
 > Admins should not interact with the spreadsheet to move users around. It will mainly be for observational purposes. Manually moving the user around will not provide a message for the user.
@@ -71,7 +71,7 @@ Allows an admin to accept a user, remove their entries and move them to the corr
 ## Deny User
 **[ADMIN]**  
 ```
-[+] /deny @user
+[+] /union-join deny @user
 ```
 Allows an admin to deny a user, remove their entry. The user is then notified of this through a DM or a server message.
 > Admins should not interact with the spreadsheet to move users around. It will mainly be for observational purposes. Manually moving the user around will not provide a message for the user.
@@ -79,27 +79,27 @@ Allows an admin to deny a user, remove their entry. The user is then notified of
 ## Join Cancel User
 **[ADMIN]**  
 ```
-[+] /joincancel @user
+[+] /union-join cancel @user
 ```
 Allows an admin to remove an entry of a corresponding user. Follows similar structure to [Join Cancel](#join-cancel)
 
 ## Join Cancel User (All)
 **[Admin]**
 ```
-[+] /joincancel all @user
+[+] /union-join cancel-all @user
 ```
 Similar to [Join Cancel user](#join-cancel-user-all) except removes all entries.
 
 # Data viewing [Players Focus]
 ## Show Union Members
 ```
-[+] /showmembers
+[+] /server-members
 ```
 Shows all members in a list alongside their friendcode and which union they are in
 
 ## Show Union Members [Union]
 ```
-[+] /showmembers union_name
+[+] /union-members
 ```
 Shows all members in a list alongside their friendcode.
 
