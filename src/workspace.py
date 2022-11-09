@@ -30,7 +30,8 @@ class Workspace():
     service = build('sheets', 'v4', credentials=creds)
     return service.spreadsheets()
   
-  def Query(self, config, sheet, range):
+  @staticmethod
+  def Query(config, sheet, range):
     sheet = Workspace.GetSheet(config)
     try:
       result = sheet.values().get(
