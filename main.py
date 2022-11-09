@@ -1,15 +1,13 @@
-# from src.workspace_quickstart import main
-from src.workspace import Workspace
 from src.PoliBot import PoliBot
 
 import discord
-import json as JSON
+import json
 
 def main():
   disc_token = ""
 
   with open("config/tokens/discord_tokens.json", 'r') as file_dc_token:
-    disc_token = JSON.load(file_dc_token)["token"]
+    disc_token = json.load(file_dc_token)["token"]
 
   intents = discord.Intents.default()
   intents.message_content = True

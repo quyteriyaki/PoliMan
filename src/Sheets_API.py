@@ -6,9 +6,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-class Workspace():
+class Sheets_API():
+  '''Library of functions that perform basic interactions with Google Sheets API'''
   @staticmethod
-  def Authenticate(config: dict) -> Credentials:
+  def _authenticate(config: dict) -> Credentials:
     creds = None
     if os.path.exists(f"config/servers/{config['guild']}/{config['source']['token']}"):
       creds = Credentials.from_authorized_user_file(f"config/servers/{config['guild']}/{config['source']['token']}", config['source']['scopes'])
@@ -25,16 +26,16 @@ class Workspace():
     return creds
 
   @staticmethod
-  def GetSheet(config):
-    creds = Workspace.Authenticate(config)
+  def _getSheet(config: dict):
+    creds = Sheets_API._authenticate(config)
     service = build('sheets', 'v4', credentials=creds)
     return service.spreadsheets()
   
   @staticmethod
-  def Query(config, sheet, range):
-    sheet = Workspace.GetSheet(config)
+  def Query(config: dict, sheet: str, range: str):
+    src = Sheets_API._getSheet(config)
     try:
-      result = sheet.values().get(
+      result = src.values().get(
         spreadsheetId=config['source']['id'],
         range=sheet+"!"+range
       ).execute()
@@ -45,11 +46,11 @@ class Workspace():
       return error
 
   @staticmethod
-  def Write(config, sheet, range, data):
-    sheet = Workspace.GetSheet(config)
+  def Write(config: dict, sheet: str, range: str, data: any):
+    src = Sheets_API._getSheet(config)
     try:
       body = {'values': data}
-      result = sheet.values().update(
+      result = src.values().update(
         spreadsheetId=config['source']['id'],
         range=sheet+"!"+range,
         valueInputOption="USER_ENTERED",

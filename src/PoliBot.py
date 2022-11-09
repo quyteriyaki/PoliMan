@@ -1,6 +1,6 @@
 from discord.ext import commands
 import discord
-import json as JSON
+import json
 import os
 
 from src.components.Union import Union
@@ -11,7 +11,7 @@ class PoliBot(commands.bot.Bot):
     super().__init__(command_prefix=command_prefix, intents=intents)
     self.paths = {}
     self.configs: dict = {}
-    self.spreadsheet_mode = True
+    self.edit_mode = True
     self.build_mode = "development"
 
   async def Setup(self):
@@ -22,7 +22,7 @@ class PoliBot(commands.bot.Bot):
     guilds: list(str) = []
     if self.build_mode == "development":
       with open("config/config.json", "r") as file:
-        guilds = JSON.load(file)["dev_servers"]
+        guilds = json.load(file)["dev_servers"]
     elif self.build_mode == "production":
       guilds = os.listdir('config/servers')
 
@@ -30,8 +30,7 @@ class PoliBot(commands.bot.Bot):
       # Sync to guilds
       if self.build_mode == "development":
         self.tree.copy_global_to(guild=i)
-        await self.tree.sync()
-        
+        await self.tree.sync() 
 
       # Notify Launch
       channel: discord.guild.GuildChannel = i.system_channel
@@ -42,10 +41,10 @@ class PoliBot(commands.bot.Bot):
         await channel.send("Poli is online!\n" + f"ERROR: No config file found. Please do `/setup` before using the bot.")
       else:
         with open(f"config/servers/{i.id}/config.json", 'r') as file:
-          config = JSON.load(file)
+          config = json.load(file)
           try:
             channel_id=config["channels"]["bot-status"]
-            channel = i.get_channel(channel_id= channel_id)
+            channel = i.get_channel(channel_id)
             # ? MESSAGE: ONLINE + INFO - STATUS OKAY
             await channel.send("Poli is online!\nEverything is set here, you're ready to use the bot!")
           except KeyError:
@@ -55,10 +54,7 @@ class PoliBot(commands.bot.Bot):
   @commands.Cog.listener()
   async def on_guild_join(self, interaction: discord.Interaction, guild: discord.Guild):
     # TODO: Welcome Message
-
-    guilds: str = []
-    with open("config/servers.json", "r") as file:
-      guilds = JSON.loads(file)["serv_ids"]
+    guilds = os.listdir('config/servers')
     
     if guild.id not in guilds:
       # TODO: Notify guild that setup is required before use
@@ -70,4 +66,4 @@ class PoliBot(commands.bot.Bot):
   async def on_ready(self):
     await self.Setup()
     print(f'{self.user} is ready!')
-    await self.PerGuildInitialization();
+    await self.PerGuildInitialization()
