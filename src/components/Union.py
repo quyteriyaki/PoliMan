@@ -5,6 +5,7 @@ import discord.ui as ui
 from src.Sheets_Utils import *
 from src.Sheets_API import Sheets_API
 from src.tools.Misc_Tools import *
+from src.tools.Rego_Tools import *
 
 from datetime import datetime
 
@@ -15,51 +16,66 @@ class Union(commands.Cog):
   # --------------------------------------
   # ! + Spreadsheet Functions
   # --------------------------------------
+
+  def PushToSource(self, guild: discord.Guild, sheet: str, region: str, vals: list, excludeCount: int = 1, rangeFix: tuple = (0, 0)) -> bool:
+    '''Adds data at at an empty location within the table'''
+    if not self.bot.edit_mode: return True
+    config = GetGuildConfig(guild)
+
+    region = config["source"]["regions"][region]
+
+    if config["source"]["type"] == "sheets":
+      data = Sheets_API.Query(config, sheet, region)
+      rowRange = FindEmptyRow(data, region, excludeCount = excludeCount)
+
+      if not rowRange: return False
+
+      rowRange[0] = mathCell(rowRange[0], rangeFix[0], 0)
+      rowRange[1] = mathCell(rowRange[1], rangeFix[1], 0)
+
+      output = Sheets_API.Write(config, sheet, ":".join(rowRange), vals)
+      return output.get('updatedCells') != 0
+
   def addReceiptToWaitlist(self, guild: discord.Guild, receipt) -> bool:
+    return self.PushToSource(guild, "Waitlist", "waitlist", 
+      [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]], 
+      excludeCount=1,
+      rangeFix=(1, 0)
+    )
+
+  def addToRoster(self, guild: discord.Guild, receipt) -> bool:
+    return self.PushToSource(guild, receipt["union"], "members",
+      [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"]]],
+      excludeCount=3, rangeFix=(1, 4)
+    )
+
+  def ReplaceToSource(self, guild: discord.guild, sheet: str, region: str, index:int, vals: list, rangeFix: tuple = (0, 0)):
+    '''Replaces data at a specific index location'''
     if not self.bot.edit_mode: return True
     config = GetGuildConfig(guild)
 
+    region = config["source"]["regions"][region].split(":")
+
     if config["source"]["type"] == "sheets":
-      vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
-      range = config["source"]["regions"]["waitlist"]
+      region[0] = mathCell(region[0], rangeFix[0], index)
+      region[1] = mathCell(region[0], rangeFix[1], index)
 
-      data = Sheets_API.Query(config, "Waitlist", range)
-      rowRange = FindEmptyRow(data, range, excludeCount = 1)
-
-      # Nudge across 1 so we don't mess up the numbers on the side
-      rowRange[0] = mathCell(rowRange[0], 1, 0)
-
-      output = Sheets_API.Write(config, "Waitlist", ":".join(rowRange), vals)
+      output = Sheets_API.Write(config, sheet, ":".join(region), vals)
       return output.get('updatedCells') != 0
-    
+
     return False
 
-  def replaceOnWaitList(self, guild: discord.Guild, receipt, index):
-    '''Explicitly replaces content at a location'''
-    if not self.bot.edit_mode: return True
-    config = GetGuildConfig(guild)
+  def replaceOnWaitlist(self, guild: discord.guild, receipt: dict, index: int):
+    return self.ReplaceToSource(guild, "Waitlist", "waitlist", index,
+    [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]],
+    excludeCount=1,
+    # ! WARNING: Brute force fix for data
+    rangeFix=(1, 6)
+  )
 
-    if config["source"]["type"] == "sheets":
-
-      vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
-      range = config["source"]["regions"]["waitlist"].split(":")
-
-      # Change the index to start + row
-      range[0] = mathCell(range[0], 1, index)
-      range[1] = mathCell(range[0], 6, index)
-
-      output = Sheets_API.Write(config, "Waitlist", ":".join(range), vals)
-      return output.get('updatedCells') != 0
-    
-    return False
-
-  def AddToUnionRoster(self, guild: discord.Guild, receipt) -> bool:
-    if not self.bot.edit_mode: return True
-    config = GetGuildConfig(guild)
-
-    if config["source"]["type"] == "sheets":
-      range = config["workspace"]["regions"]["members"].split(":")
-    
+  def deleteOnWaitlist(self, guild: discord.Guild, index: int):
+    '''Shortcut for receipt = blank'''
+    return self.replaceOnWaitlist(guild, GenerateBlankReceipt(), index)
 
   def findWaitlistReceipt(self, guild: discord.Guild, user: discord.Member):
     if not self.bot.edit_mode: return True
@@ -110,10 +126,37 @@ class Union(commands.Cog):
       await interaction.response.send_message("Please confirm whether you would like to remove this entry.", embed = embed, view=RemoveWaitlist(self, receipts[0]), ephemeral=True)
       return
 
+    elif options == "help":
+      await interaction.response.send_message("**Temporary help message**\n`/union-join` - Put an entry for yourself on waitlist for a union\n`/union-join options:edit` - Edit an entry for yourself on waitlist\n`/union-join options:cancel` - Remove an entry for yourself on waitlist for a union\n`/union-join options:help` - Shows this message")
+      return
+
     elif options == "accept":
       if not interaction.permissions.manage_guild:
         await interaction.response.send_message("You do not have permission to use this command option.", ephemeral=True)
         return
+
+      # Find if they do have a receipt
+      receipts = self.findWaitlistReceipt(interaction.guild, member)
+      if len(receipts) == 0:
+        await interaction.response.send_message("This user does not have any entries for a union.")
+        return
+
+      if not self.addToRoster(interaction.guild, receipts[0]):
+        await interaction.response.send_message("There was an error adding this person to the roster.")
+        return
+      
+      await interaction.channel.send(f"{interaction.user.mention} has accepted {member.mention} to {receipts['union']}.")
+
+      try:
+        await member.send(f"Congratulations! You\'ve been accepted into Nikke - {receipts['union']}")
+      except:
+        # Get the system channel
+        config = GetGuildConfig(interaction.guild)
+        await interaction.guild.get_channel(config["channels"]["bot-status"]).send(f"Congratulations! You\'ve been accepted into Nikke - {receipts['union']}")
+
+      if not self.deleteOnWaitlist(interaction.guild, receipts["row"]):
+        await interaction.response.send_message("There was an error removing this person from the waitlist, please remove them manually")
+      return
 
   @staticmethod
   def generateReceiptEmbed(receipt):
@@ -167,7 +210,7 @@ class RemoveWaitlist(ui.View):
       "date": ""
     }
 
-    if (not self.parent.replaceOnWaitList(interaction.guild, self.receipt, self.receipt["row"])):
+    if (not self.parent.replaceOnWaitlist(interaction.guild, self.receipt, self.receipt["row"])):
       await interaction.response.send_message("An error occured.", ephemeral=True)
       return
 
