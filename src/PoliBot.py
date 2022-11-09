@@ -11,7 +11,7 @@ class PoliBot(commands.bot.Bot):
     self.work = workspace
     self.paths = {}
     self.configs: dict = {}
-    self.spreadsheet_mode = False
+    self.spreadsheet_mode = True
 
   async def setup(self):
     await self.add_cog(Registration(self))

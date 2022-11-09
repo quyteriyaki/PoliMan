@@ -20,7 +20,16 @@ class Registration(commands.Cog):
     elif options == "cancel":
       # Show receipts
       # Confirmation message
-      await interaction.response.send_message("This is not implemented yet! Please try another command")
+      receipts = self.findReceipt(interaction.user)
+      if not receipts: 
+        await interaction.response.send_message("We couldn't find you on the waitlist! That means you haven't applied yet")
+        return
+
+      embed = Registration.generateReceiptEmbed(receipts[0])
+      embed.set_field_at(0, name="Discord ID", value=interaction.user.mention)
+
+      await interaction.response.send_message("Please confirm whether you would like to remove this entry.", embed = embed, view=RemoveWaitlist(self, receipts[0]))
+
     elif options == "accept":
       pass
 
@@ -32,6 +41,7 @@ class Registration(commands.Cog):
     if not self.bot.spreadsheet_mode: return True
     vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
     
+    range = self.bot.configs["workspace"]["regions"]["waitlist"]
     data = self.getWaitlistData()
     rowRange = FindEmptyRow(data, range.split(":")[0])
     rowRange[0] = mathCell(rowRange[0], 1, 0)
@@ -39,27 +49,40 @@ class Registration(commands.Cog):
     output = self.bot.work.Write("Waitlist", ":".join(rowRange), vals)
     return output.get('updatedCells') != 0
 
+  def replaceOnWaitList(self, receipt):
+    if not self.bot.spreadsheet_mode: return True
+    vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
+
+    range = self.bot.configs["workspace"]["regions"]["waitlist"].split(":")
+    # Change the index to start + row
+    range[0] = mathCell(range[0], 1, receipt["row"])
+    range[1] = mathCell(range[0], 6, receipt["row"])
+
+    output = self.bot.work.Write("Waitlist", ":".join(range), vals)
+    return output.get('updatedCells') != 0
+
+
   def findReceipt(self, user: discord.Member):
     if not self.bot.spreadsheet_mode: return True
     data = self.getWaitlistData()
 
     receipts = []
 
-    for row in data:
-      if row[0] == user.name + "#" + str(user.discriminator):
+    for i, row in enumerate(data):
+      if len(row) == 1: continue
+      if row[1] == user.name + "#" + str(user.discriminator):
         receipt = {
-          "disc_id": row[0],
-          "union": row[3],
-          "n_ign": row[1],
-          "n_id": row[2],
-          "notes": row[4],
-          "date": row[5]
+          "row": int(row[0]),
+          "disc_id": row[1],
+          "union": row[4],
+          "n_ign": row[2],
+          "n_id": row[3],
+          "notes": row[5],
+          "date": int(row[6])
         }
 
-        r = receipt["date"].split("/")
-        receipt["date"] = date(r[2], r[0]. r[1])
-
         receipts.append(receipt)
+    if len(receipts) == 0: return None
     return receipts
 
   @staticmethod
@@ -75,7 +98,8 @@ class Registration(commands.Cog):
     embed.add_field(name="Nikke IGN", value=receipt["n_ign"])
     embed.add_field(name="Nikke ID", value=receipt["n_id"])
     embed.add_field(name="Additional Notes", value=receipt["notes"], inline=False)
-    embed.add_field(name="Date submitted", value=receipt["date"])
+    embed.add_field(name="Date submitted", value=f'<t:{receipt["date"]}:F>')
+
     return embed
 
 class SelectUnion(ui.View):
@@ -91,7 +115,38 @@ class SelectUnion(ui.View):
   @ui.button(label="Polipups", style=discord.ButtonStyle.red)
   async def joinPoliups(self, interaction: discord.Interaction, button):
     await interaction.response.send_modal(JoinForm(parent=self.parent, title="Signup for Polipups"))
-  
+
+class RemoveWaitlist(ui.View):
+  def __init__(self, parent, receipt):
+    super().__init__()
+    self.parent = parent
+    self.receipt = receipt
+  @ui.button(label="Leave", style=discord.ButtonStyle.red)
+  async def leave(self, interaction: discord.Interaction, button):
+    self.receipt = {
+      "row": self.receipt["row"],
+      "disc_id": "",
+      "union": "",
+      "n_ign": "",
+      "n_id": "",
+      "notes": "",
+      "date": ""
+    }
+
+    if (not self.parent.replaceOnWaitList(self.receipt)) :
+      await interaction.response.send_message("An error occured.")
+      return
+
+    try:
+      await interaction.user.send("Your application has been removed from our waitlist.")
+    except discord.errors.DiscordException:
+      await interaction.response.send_message("Your application has been removed from our waitlist.")
+    pass
+
+  @ui.button(label="Cancel", style=discord.ButtonStyle.gray)
+  async def cancel(self, interaction: discord.Interaction):
+    await interaction.delete_original_response()
+
 class JoinForm(ui.Modal):
   def __init__(self, parent: Registration, title):
     super().__init__(title=title)
@@ -109,20 +164,19 @@ class JoinForm(ui.Modal):
       "n_ign": self.name.value,
       "n_id": self.nid.value,
       "notes": self.notes.value,
-      "date": t.strftime("%m/%d/%Y")
+      "date": int(t.timestamp())
     }
 
-    if (self.parent.addReceiptToWaitlist(receipt)):
-      embed = Registration.generateReceiptEmbed(receipt)
-
-      embed.set_field_at(0, name="Discord ID", value=interaction.user.mention)
-      embed.set_field_at(5, name="Date submitted", value=f'<t:{int(t.timestamp())}:F>')
-
-      try:
-        await interaction.response.defer()
-        await interaction.user.send("All set! Please wait for a response as union leaders do their thing.", embed=embed)
-      except discord.errors.DiscordException:
-        await interaction.response.send_message("Since I can't send a DM, I'll send the receipt here.", embed=embed)
-      await interaction.delete_original_response()
-    else:
+    if not self.parent.addReceiptToWaitlist(receipt):
       await interaction.response.send_message("An error occured.")
+      return
+    
+    embed = Registration.generateReceiptEmbed(receipt)
+    embed.set_field_at(0, name="Discord ID", value=interaction.user.mention)
+
+    try:
+      await interaction.response.defer()
+      await interaction.user.send("All set! Please wait for a response as union leaders do their thing.", embed=embed)
+    except discord.errors.DiscordException:
+      await interaction.response.send_message("Since I can't send a DM, I'll send the receipt here. Screenshot this to keep a record of it.", embed=embed)
+    await interaction.delete_original_response()
