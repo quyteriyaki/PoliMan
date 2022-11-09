@@ -1,9 +1,0 @@
-{
-  "workspace": {
-    "token": "tokens/workspace_tokens.json",
-    "creds": "tokens/workspace_creds.json"
-  },
-  "discord": {
-    "token": "tokens/discord_tokens.json"
-  }
-}

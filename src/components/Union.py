@@ -6,7 +6,7 @@ from src.workspace_utils import *
 
 from datetime import datetime
 
-class Registration(commands.Cog):
+class Union(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
 
@@ -82,7 +82,7 @@ class Registration(commands.Cog):
         await interaction.response.send_message("We couldn't find you on the waitlist! That means you haven't applied yet")
         return
 
-      embed = Registration.generateReceiptEmbed(receipts[0])
+      embed = Union.generateReceiptEmbed(receipts[0])
       embed.set_field_at(0, name="Discord ID", value=interaction.user.mention)
 
       await interaction.response.send_message("Please confirm whether you would like to remove this entry.", embed = embed, view=RemoveWaitlist(self, receipts[0]))
@@ -108,7 +108,7 @@ class Registration(commands.Cog):
     return embed
 
 class SelectUnion(ui.View):
-  def __init__(self, parent: Registration):
+  def __init__(self, parent: Union):
     super().__init__()
     self.parent = parent
   @ui.button(label="Police", style=discord.ButtonStyle.blurple)
@@ -153,7 +153,7 @@ class RemoveWaitlist(ui.View):
     await interaction.delete_original_response()
 
 class JoinForm(ui.Modal):
-  def __init__(self, parent: Registration, title):
+  def __init__(self, parent: Union, title):
     super().__init__(title=title)
     self.parent = parent
 
@@ -176,7 +176,7 @@ class JoinForm(ui.Modal):
       await interaction.response.send_message("An error occured.")
       return
     
-    embed = Registration.generateReceiptEmbed(receipt)
+    embed = Union.generateReceiptEmbed(receipt)
     embed.set_field_at(0, name="Discord ID", value=interaction.user.mention)
 
     try:

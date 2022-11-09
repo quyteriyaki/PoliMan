@@ -1,26 +1,3 @@
 {
-    "workspace": {
-        "spreadsheet_id": "1O23o97jhgr8z_m3ph2lfidKgq1iTtaymhrKf74Saw0M",
-        "scopes": [
-            "https://www.googleapis.com/auth/spreadsheets"
-        ],
-        "regions": {
-            "members": "B3:I23",
-            "waitlist": "B3:H43"
-        }
-    },
-    "union": [
-        "POLICE",
-        "POLIDOGS",
-        "POLIUPS"
-    ],
-    "guilds": [
-        1038184843646881812
-    ],
-    "roles": [
-        293641936278126593
-    ],
-    "admin_roles": [
-        
-    ]
+  "dev_servers": [105518865928212480]
 }
