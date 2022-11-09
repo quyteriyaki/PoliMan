@@ -11,10 +11,10 @@ class PoliBot(commands.bot.Bot):
     self.work = workspace
     self.paths = {}
     self.configs: dict = {}
+    self.spreadsheet_mode = False
 
   async def setup(self):
     await self.add_cog(Registration(self))
-    await self.add_cog(Administration(self))
 
   def PassConfigs(self, paths, configs):
     self.paths = paths
@@ -24,5 +24,5 @@ class PoliBot(commands.bot.Bot):
     await self.setup()
     guild = discord.Object(id=105518865928212480)
     self.tree.copy_global_to(guild = guild)
+    await self.tree.sync(guild = guild)
     print(f'{self.user} is ready!')
-    print(f'{len(self.tree._get_all_commands())}')
