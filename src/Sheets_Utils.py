@@ -27,6 +27,9 @@ def a2n(col):
       num = num * 26 + (ord(c.upper()) - ord('A'))
   return num
 
+def countEmpty(data: list):
+  return data.count("")
+
 def FindEmptyRow(data, range: str = "A1:A1", excludeCount = 1):
   '''Finds an empty row within range.'''
   start, end = range.split(":")
@@ -34,6 +37,8 @@ def FindEmptyRow(data, range: str = "A1:A1", excludeCount = 1):
   diff = a2n(end[0]) - a2n(start[0])
 
   for i, val in enumerate(data):
-    if (len(val) <= excludeCount):
+    # Exclude count = 3 means 3 filled
+    # If 2 slots are empty out of 4 where 3 should be empty
+    if (len(val) <= excludeCount) or (countEmpty(val) >= (len(val) - excludeCount)):
       return [mathCell(start, 0, i), mathCell(start, diff, i)]
   return None
