@@ -7,54 +7,54 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 class Workspace():
-  def __init__(self, paths = {}, workspace_configs = {}):
+  @staticmethod
+  def Authenticate(config: dict) -> Credentials:
     creds = None
-    if os.path.exists(paths["token"]):
-      creds = Credentials.from_authorized_user_file(paths["token"], workspace_configs["scopes"])
+    if os.path.exists(f"config/servers/{config['guild']}/{config['source']['token']}"):
+      creds = Credentials.from_authorized_user_file(f"config/servers/{config['guild']}/{config['source']['token']}", config['source']['scopes'])
     if not creds or not creds.valid:
       if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
       else:
-        flow: InstalledAppFlow = InstalledAppFlow.from_client_secrets_file(paths["creds"], workspace_configs["scopes"])
-        creds = flow.run_local_server(port=0)
+        flow: InstalledAppFlow = InstalledAppFlow.from_client_secrets_file(f"config/servers/{config['guild']}/{config['source']['creds']}", config['source']['scopes'])
+        creds = flow.run_console(port=0)
     
+    with open(f"config/servers/{config['guild']}/{config['source']['token']}", 'w') as file:
+      file.write(creds.to_json())
 
-    with open(paths["token"], 'w') as token:
-      token.write(creds.to_json())
+    return creds
 
-    self.service = build('sheets', 'v4', credentials=creds)
-    self.sheet = self.service.spreadsheets()
+  @staticmethod
+  def GetSheet(config):
+    creds = Workspace.Authenticate(config)
+    service = build('sheets', 'v4', credentials=creds)
+    return service.spreadsheets()
   
-  def Initialize(self, sheetID: str):
-    self.src = sheetID
-  
-  def Query(self, sheet, range):
+  def Query(self, config, sheet, range):
+    sheet = Workspace.GetSheet(config)
     try:
-      result = self.sheet.values().get(
-        spreadsheetId=self.src, range=sheet+"!"+range).execute()
-
-      rows = result.get('values', [])
-      return rows
-    except HttpError as error:
-      print(error)
-      return error
-  
-  def BatchQuery(self, sheet, ranges):
-    try:
-      result = self.sheet.values().batchGet(
-        spreadsheetId=self.src, ranges=sheet+"!"+ranges).execute()
+      result = sheet.values().get(
+        spreadsheetId=config['source']['id'],
+        range=sheet+"!"+range
+      ).execute()
 
       return result.get('values', [])
     except HttpError as error:
       print(error)
       return error
 
-  def Write(self, sheet, range, data):
+  @staticmethod
+  def Write(config, sheet, range, data):
+    sheet = Workspace.GetSheet(config)
     try:
-      body = {
-        'values': data
-      }
-      result = self.sheet.values().update(spreadsheetId=self.src, range=sheet+"!"+range, valueInputOption="USER_ENTERED", body = body).execute()
+      body = {'values': data}
+      result = sheet.values().update(
+        spreadsheetId=config['source']['id'],
+        range=sheet+"!"+range,
+        valueInputOption="USER_ENTERED",
+        body = body
+      ).execute()
+
       print(f"{result.get('updatedCells')} cells updated.")
       return result
     except HttpError as error:
