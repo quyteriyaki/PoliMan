@@ -4,11 +4,68 @@ import discord
 import discord.ui as ui
 from src.workspace_utils import *
 
-from datetime import datetime, date
+from datetime import datetime
 
 class Registration(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
+
+  # --------------------------------------
+  # + Bot
+  # --------------------------------------
+  def addReceiptToWaitlist(self, receipt) -> bool:
+    if not self.bot.spreadsheet_mode: return True
+
+    vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
+    range = self.bot.configs["workspace"]["regions"]["waitlist"]
+  
+    data = self.bot.work.Query("Waitlist", range)
+    rowRange = FindEmptyRow(data, range, excludeCount = 1)
+
+    # Nudge across 1 so we don't mess up the numbers on the side
+    rowRange[0] = mathCell(rowRange[0], 1, 0)
+
+    output = self.bot.work.Write("Waitlist", ":".join(rowRange), vals)
+    return output.get('updatedCells') != 0
+
+  def replaceOnWaitList(self, receipt, index):
+    '''Explicitly replaces content at a location'''
+    if not self.bot.spreadsheet_mode: return True
+
+    vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
+
+    range = self.bot.configs["workspace"]["regions"]["waitlist"].split(":")
+    # Change the index to start + row
+    range[0] = mathCell(range[0], 1, index)
+    range[1] = mathCell(range[0], 6, index)
+
+    output = self.bot.work.Write("Waitlist", ":".join(range), vals)
+    return output.get('updatedCells') != 0
+
+  def findReceipt(self, user: discord.Member):
+    if not self.bot.spreadsheet_mode: return True
+
+    data = self.bot.work.Query("Waitlist",
+      self.bot.configs["workspace"]["regions"]["waitlist"])
+
+    receipts = []
+
+    for i, row in enumerate(data):
+      if len(row) <= 1: continue
+      if row[1] == user.name + "#" + str(user.discriminator):
+        receipt = {
+          "row": int(row[0]),
+          "disc_id": row[1],
+          "union": row[4],
+          "n_ign": row[2],
+          "n_id": row[3],
+          "notes": row[5],
+          "date": int(row[6])
+        }
+        receipts.append(receipt)
+    if len(receipts) == 0: return None
+    return receipts
+
 
   @app_commands.command(name="union_join", description="Start the process to join a Union!")
   async def union_join(self, interaction: discord.Interaction, options: str = "", member: discord.Member = None):    
@@ -33,58 +90,6 @@ class Registration(commands.Cog):
     elif options == "accept":
       pass
 
-  def getWaitlistData(self):
-    range = self.bot.configs["workspace"]["regions"]["waitlist"]
-    return self.bot.work.Query("Waitlist", range)
-
-  def addReceiptToWaitlist(self, receipt):
-    if not self.bot.spreadsheet_mode: return True
-    vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
-    
-    range = self.bot.configs["workspace"]["regions"]["waitlist"]
-    data = self.getWaitlistData()
-    rowRange = FindEmptyRow(data, range.split(":")[0])
-    rowRange[0] = mathCell(rowRange[0], 1, 0)
-
-    output = self.bot.work.Write("Waitlist", ":".join(rowRange), vals)
-    return output.get('updatedCells') != 0
-
-  def replaceOnWaitList(self, receipt):
-    if not self.bot.spreadsheet_mode: return True
-    vals = [[receipt["disc_id"], receipt["n_ign"], receipt["n_id"], receipt["union"], receipt["notes"], receipt["date"]]]
-
-    range = self.bot.configs["workspace"]["regions"]["waitlist"].split(":")
-    # Change the index to start + row
-    range[0] = mathCell(range[0], 1, receipt["row"])
-    range[1] = mathCell(range[0], 6, receipt["row"])
-
-    output = self.bot.work.Write("Waitlist", ":".join(range), vals)
-    return output.get('updatedCells') != 0
-
-
-  def findReceipt(self, user: discord.Member):
-    if not self.bot.spreadsheet_mode: return True
-    data = self.getWaitlistData()
-
-    receipts = []
-
-    for i, row in enumerate(data):
-      if len(row) == 1: continue
-      if row[1] == user.name + "#" + str(user.discriminator):
-        receipt = {
-          "row": int(row[0]),
-          "disc_id": row[1],
-          "union": row[4],
-          "n_ign": row[2],
-          "n_id": row[3],
-          "notes": row[5],
-          "date": int(row[6])
-        }
-
-        receipts.append(receipt)
-    if len(receipts) == 0: return None
-    return receipts
-
   @staticmethod
   def generateReceiptEmbed(receipt):
     embed: discord.Embed = discord.Embed(
@@ -103,17 +108,17 @@ class Registration(commands.Cog):
     return embed
 
 class SelectUnion(ui.View):
-  def __init__(self, parent):
+  def __init__(self, parent: Registration):
     super().__init__()
     self.parent = parent
   @ui.button(label="Police", style=discord.ButtonStyle.blurple)
-  async def joinPolice(self, interaction: discord.Interaction, button):
+  async def joinPolice(self, interaction: discord.Interaction, button: discord.Button):
     await interaction.response.send_modal(JoinForm(parent=self.parent, title="Signup for Police"))
   @ui.button(label="Polidogs", style=discord.ButtonStyle.green)
-  async def joinPolidogs(self, interaction: discord.Interaction, button):
+  async def joinPolidogs(self, interaction: discord.Interaction, button: discord.Button):
     await interaction.response.send_modal(JoinForm(parent=self.parent, title="Signup for Polidogs"))
   @ui.button(label="Polipups", style=discord.ButtonStyle.red)
-  async def joinPoliups(self, interaction: discord.Interaction, button):
+  async def joinPoliups(self, interaction: discord.Interaction, button: discord.Button):
     await interaction.response.send_modal(JoinForm(parent=self.parent, title="Signup for Polipups"))
 
 class RemoveWaitlist(ui.View):
