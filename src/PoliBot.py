@@ -17,6 +17,7 @@ class PoliBot(commands.bot.Bot):
   async def Setup(self):
     await self.add_cog(Union(self))
     await self.add_cog(Administration(self))
+    return
 
   async def PerGuildInitialization(self):
     guilds: list(str) = []
@@ -28,13 +29,10 @@ class PoliBot(commands.bot.Bot):
 
     for i in self.guilds:
       # Sync to guilds
-      if self.build_mode == "development":
-        self.tree.copy_global_to(guild=i)
-        await self.tree.sync() 
+      self.tree.copy_global_to(guild=i)
 
       # Notify Launch
       channel: discord.guild.GuildChannel = i.system_channel
-      print(i.id)
       if i.id not in guilds:
         # TODO: Notify guild that setup is required before use
         # ? MESSAGE: ONLINE + ERROR - CONFIG_NOT_SET
@@ -52,7 +50,7 @@ class PoliBot(commands.bot.Bot):
             await channel.send("Poli is online!\n" + f"WARNING: No bot specific channel. All server messages will go to {channel.mention}.")
 
   @commands.Cog.listener()
-  async def on_guild_join(self, interaction: discord.Interaction, guild: discord.Guild):
+  async def on_guild_join(self, guild: discord.Guild):
     # TODO: Welcome Message
     guilds = os.listdir('config/servers')
     
@@ -65,5 +63,6 @@ class PoliBot(commands.bot.Bot):
 
   async def on_ready(self):
     await self.Setup()
+    await self.tree.sync()
     print(f'{self.user} is ready!')
     await self.PerGuildInitialization()

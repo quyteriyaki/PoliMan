@@ -146,7 +146,10 @@ class Union(commands.Cog):
         return
       
       await interaction.channel.send(f"{interaction.user.mention} has accepted {member.mention} to {receipts[0]['union']}.")
-
+      config = GetGuildConfig(interaction.guild)
+      union = GetUnion(receipts[0]['union'], config["unions"])
+      role = interaction.guild.get_role(union["role"])
+      await member.add_roles(role)
       try:
         await member.send(f"Congratulations! You\'ve been accepted into Nikke - {receipts[0]['union']}")
       except:
@@ -182,6 +185,9 @@ class Union(commands.Cog):
 
       return
 
+  @app_commands.command(name="union_create", description="Create a Union")
+  async def union_create(self, interaction: discord.Interaction):
+    await interaction.response.send_modal(UnionCreate(self))
 
   @staticmethod
   def generateReceiptEmbed(receipt):
@@ -282,3 +288,26 @@ class JoinForm(ui.Modal):
     except discord.errors.DiscordException:
       await interaction.response.send_message("Since I can't send a DM, I'll send the receipt here. Screenshot this to keep a record of it.", embed=embed, ephemeral=True)
     await interaction.delete_original_response()
+
+class UnionCreate(ui.Modal):
+  def __init__(self, parent: Union):
+    super().__init__(title="Create a Union")
+
+  name = ui.TextInput(label="Union Name", min_length=4, max_length=4)
+  region = ui.TextInput(label="NIKKE Server Region")
+  union_id = ui.TextInput(label="Union ID")
+  role = ui.TextInput(label="Discord Role")
+  
+  async def on_submit(self, interaction: discord.Interaction) -> None:
+    config = GetGuildConfig(interaction.guild)
+    config["unions"].append({
+      "name": self.name.value,
+      "region": self.region.value,
+      "union_id": self.union_id.value,
+      "role": self.role.value,
+      "leader_id": interaction.user.id
+    })
+    WriteGuildConfig(interaction.guild, config)
+
+    await interaction.response.defer()
+    await interaction.user.send(f"Union {self.name} has been created!")
