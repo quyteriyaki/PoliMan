@@ -187,7 +187,28 @@ class Union(commands.Cog):
 
   @app_commands.command(name="union_create", description="Create a Union")
   async def union_create(self, interaction: discord.Interaction):
+    if not interaction.permissions.manage_guild:
+        await interaction.response.send_message("You do not have permission to use this command option.", ephemeral=True)
+        return
+
     await interaction.response.send_modal(UnionCreate(self))
+
+  @app_commands.command(name="union_roleset", description="Go through everyone in roster and assign correct roles")
+  async def union_roleset(self, interaction: discord.Interaction):
+    if not interaction.permissions.manage_guild:
+      await interaction.response.send_message("You do not have permission to use this command option.", ephemeral=True)
+      return
+    
+    config = GetGuildConfig(interaction.guild)
+
+    for union in config["unions"]:
+      data = Sheets_API.Query(config, union["name"], "members")
+      role = interaction.guild.get_role(union["role"])
+      for row in data:
+        if row[0].isnumeric():
+          user = interaction.guild.get_member_named(row[1])
+          if role not in user.roles:
+            await user.add_roles(role)
 
   @staticmethod
   def generateReceiptEmbed(receipt):
