@@ -204,11 +204,14 @@ class Union(commands.Cog):
     for union in config["unions"]:
       data = Sheets_API.Query(config, union["name"], "members")
       role = interaction.guild.get_role(union["role"])
+      i = 0
       for row in data:
         if row[0].isnumeric():
           user = interaction.guild.get_member_named(row[1])
           if role not in user.roles:
             await user.add_roles(role)
+            i += 1
+      await interaction.channel.send(f"{i} member{'s' if i != 1 else ''} added to {role.name}")
 
   @staticmethod
   def generateReceiptEmbed(receipt):
